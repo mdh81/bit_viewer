@@ -197,13 +197,9 @@ struct std::formatter<bits_and_bytes::Bits<NumericType>> : std::formatter<std::s
     }
 };
 
+// Stream overload to print to output stream
 template<typename NumericType>
 std::ostream& operator << (std::ostream& os, bits_and_bytes::Bits<NumericType> const& bits) {
    os << static_cast<std::string>(bits) << std::endl;
    return os;
-}
-
-template<typename NumericType>
-bool operator==(bits_and_bytes::Bits<NumericType> const& objectA, bits_and_bytes::Bits<NumericType> const& objectB) {
-    return objectA.value == objectB.value;
 }
