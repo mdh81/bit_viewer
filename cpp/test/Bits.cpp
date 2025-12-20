@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
 
-#include "bits_and_bytes.h"
+#include "Bits.h"
 
 class Bits : public testing::Test {
 public:
