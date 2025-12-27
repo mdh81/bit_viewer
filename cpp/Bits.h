@@ -5,6 +5,8 @@
 #include <ostream>
 #include <ranges>
 #include <string>
+#include <algorithm>
+#include <regex>
 #include "Common.h"
 
 
@@ -14,6 +16,8 @@ namespace bits_and_bytes {
     // 2. Python module
     // 3. Class named Bytes that accepts a T or sequence of T and serializes them to a byte array
 
+    // Non-template base class that allows clients of Bits to set the string format globally for all template
+    // instantiations of Bits<T>
     struct BitsBase {
         inline static StringFormat stringFormat {
             Order::BigEndian,
@@ -58,7 +62,7 @@ namespace bits_and_bytes {
         [[nodiscard]] std::string formatHex(std::string&& hexString) const {
             std::string result;
             if (stringFormat.leadingZeroes == LeadingZeroes::Include) {
-                result.resize(numBitsInFormattedOutput / NumBitsInOneNibble, '0');
+                result.resize(numBitsInFormattedOutput / NUM_BITS_IN_ONE_NIBBLE, '0');
             } else {
                 result.resize(hexString.size());
             }
@@ -82,7 +86,7 @@ namespace bits_and_bytes {
             if (stringFormat.bitUnit == BitUnit::None) {
                 return { false, 0 };
             }
-            uint8_t groupSize = stringFormat.bitUnit == BitUnit::Byte ? NumBitsInOneByte : NumBitsInOneNibble;
+            uint8_t groupSize = stringFormat.bitUnit == BitUnit::Byte ? NUM_BITS_IN_ONE_BYTE : NUM_BITS_IN_ONE_NIBBLE;
             groupSize = isHex ? groupSize / 4 : groupSize;
             return { true, groupSize };
         }
@@ -134,9 +138,17 @@ namespace bits_and_bytes {
         explicit Bits(NumericType value)
             : value(value) {}
 
-        explicit Bits(std::string const& bitStr) {
-            if (bitStr.empty()) throw std::invalid_argument("Binary string is empty");
-            value = asDecimal(bitStr);
+        explicit Bits(std::string const& numStr) {
+            if (numStr.empty()) {
+                throw std::invalid_argument("Number string is empty");
+            }
+            if (auto const hexaDecimal = isValidHex(numStr); hexaDecimal) {
+                value = hexAsDecimal(*hexaDecimal);
+            } else if (auto const binary = isValidBinary(numStr); binary) {
+                value = binaryAsDecimal(*binary);
+            } else {
+                throw std::runtime_error(std::format("{} is not a valid binary or hexadecimal representation", numStr));
+            }
         }
 
         explicit Bits(char const* bitChars)
@@ -166,12 +178,15 @@ namespace bits_and_bytes {
         NumericType getValue() const { return value; }
 
     private:
+        // NOTE: Private methods do not perform any sanity checks, it's expected that the public API checks the input
+        // for validity before passing them to the private methods for further processing
+
         [[nodiscard]] static constexpr uint8_t getNumberOfBits() {
-            return sizeof(NumericType) * NumBitsInOneByte;
+            return sizeof(NumericType) * NUM_BITS_IN_ONE_BYTE;
         }
 
         [[nodiscard]] static constexpr uint8_t getNumberOfNibbles() {
-            return getNumberOfBits() / NumBitsInOneNibble;
+            return getNumberOfBits() / NUM_BITS_IN_ONE_NIBBLE;
         }
 
         [[nodiscard]] std::string asBits() const {
@@ -191,31 +206,125 @@ namespace bits_and_bytes {
             std::string hexString{};
             auto number = value;
             do {
-                auto hexDigit = number % 16;
-                auto hexDigitChar { hexDigit <= 9 ? '0' : 'a'};
-                hexString.push_back(hexDigit <= 9 ? hexDigitChar + hexDigit : hexDigitChar + (hexDigit - 10));
-                number = number / 16;
+                auto hexDigit = number % SIXTEEN;
+                auto hexDigitChar { hexDigit <= NINE ? '0' : stringFormat.hexFormat == HexFormat::LowerCase ? 'a' : 'A' };
+                hexString.push_back(hexDigit <= NINE ? hexDigitChar + hexDigit : hexDigitChar + (hexDigit - TEN));
+                number = number / SIXTEEN;
             } while (number);
             return hexString;
         }
 
-        [[nodiscard]] NumericType asDecimal(std::string const& binStr) {
-            NumericType number{};
+        [[nodiscard]] static NumericType interpretAsTwosComplement(std::string_view const binStr) {
+            int64_t rawValue{};
+            int64_t placeValue{1};
+            for (uint8_t numBits = static_cast<uint8_t>(binStr.length()), i = numBits-1; i > 0; --i) {
+                rawValue += (binStr[i] - '0') * placeValue;
+                placeValue *= TWO;
+            }
+            rawValue -= (binStr[0] - '0') * placeValue;
+            if (rawValue >= MinValue && rawValue <= MaxValue) {
+                return static_cast<NumericType>(rawValue);
+            }
+            throw std::runtime_error
+            (
+                std::format("Binary value {} (Decimal value = {}) outside the {} type's range "
+                    "[{}, {}]", binStr, rawValue, typeid(NumericType).name(), MinValue, MaxValue)
+            );
+        }
+
+        [[nodiscard]] NumericType binaryAsDecimal(std::string_view const binStr) {
+            uint64_t rawValue{};
+            if (std::is_signed_v<NumericType>) {
+                return interpretAsTwosComplement(binStr);
+            }
             uint8_t bitPos{};
             for (auto itr = binStr.crbegin(); itr != binStr.crend(); ++itr, ++bitPos) {
-                number += *itr * (1 << bitPos);
+                rawValue += (*itr - '0') * (1 << bitPos);
             }
-            return number;
+            if (rawValue <= MaxValue) {
+                return static_cast<NumericType>(rawValue);
+            }
+            throw std::runtime_error(
+                std::format("Binary value {} (Decimal = {}) exceeds type's maximum {}",
+                    binStr, rawValue, MaxValue)
+            );
+        }
+
+        [[nodiscard]] static uint8_t hexDigitAsDecimal(char const hexDigit) {
+            if (hexDigit >= '0' && hexDigit <= '9') {
+                return hexDigit - '0';
+            }
+            return std::tolower(hexDigit) - 'a' + TEN;
+        }
+
+        [[nodiscard]] NumericType interpretHexAsTwosComplement(std::string_view const hexStr) {
+            // NOTE: Caller is expected to strip prefix 0x from the input argument
+            std::string binStr;
+            binStr.reserve(hexStr.size() * NUM_BITS_IN_ONE_NIBBLE);
+            for (auto const hexDigit : hexStr) {
+                for (auto const nibble = nibbleAsBits(hexDigitAsDecimal(hexDigit)); auto const bit : nibble) {
+                    binStr.push_back(bit);
+                }
+            }
+            return interpretAsTwosComplement(binStr);
+        }
+
+        [[nodiscard]] NumericType hexAsDecimal(std::string_view const hexStr) {
+            if (hexDigitAsDecimal(hexStr[2]) >> 3) { // Check the sign bit
+                return interpretHexAsTwosComplement(std::string_view{hexStr.cbegin() + 2, hexStr.cend() });
+            }
+            NumericType number{};
+            uint64_t rawValue{};
+            uint64_t hexPlaceValue{1};
+            for (char const digit : std::ranges::reverse_view(hexStr)) {
+                if (digit == 'x') break;
+                rawValue += hexDigitAsDecimal(digit) * hexPlaceValue;
+                hexPlaceValue *= SIXTEEN;
+            }
+            if (rawValue <= MaxValue) {
+                return static_cast<NumericType>(rawValue);
+            }
+            throw std::runtime_error
+            (
+                std::format("Hexa decimal value {} (Decimal = {}) exceeds type's maximum {}",
+                    hexStr, rawValue, MaxValue)
+            );
+        }
+
+        [[nodiscard]] static std::optional<std::string> getMatchingNumberString(std::string_view const str, std::regex const& expr) {
+            std::string potentialNumStr;
+            potentialNumStr.reserve(str.size());
+            std::ranges::copy_if(str, std::back_inserter(potentialNumStr),
+                [](char const c) { return !std::isspace(c); });
+            std::smatch matches;
+            std::regex_match(potentialNumStr, matches, expr);
+            if (matches.ready() && matches.size() == 1) {
+                return std::make_optional(potentialNumStr);
+            }
+            return std::nullopt;
+        }
+
+        [[nodiscard]] static std::optional<std::string> isValidHex(std::string_view const str) {
+            return getMatchingNumberString(str, HEX_REGEX);
+
+        }
+
+        [[nodiscard]] static std::optional<std::string> isValidBinary(std::string_view const str) {
+            return getMatchingNumberString(str, BIN_REGEX);
         }
 
         NumericType value;
         mutable std::optional<BitsPresenter> presenter;
         friend class BitsPresenter;
+        inline static std::regex const HEX_REGEX {"0x[0-9A-Fa-f]{1,16}" };
+        inline static std::regex const BIN_REGEX {"[0-1]{1,64}" };
+        static constexpr NumericType MaxValue {std::numeric_limits<NumericType>::max()};
+        static constexpr NumericType MinValue {std::numeric_limits<NumericType>::min()};
     };
 
 }
 
-// Functor to support printing bits::Bits via std::format
+// Custom formatter to support printing bits::Bits via std::format
 template <typename NumericType>
 struct std::formatter<bits_and_bytes::Bits<NumericType>> : std::formatter<std::string> {
     auto format(bits_and_bytes::Bits<NumericType> const& bits, std::format_context& ctx) const {
