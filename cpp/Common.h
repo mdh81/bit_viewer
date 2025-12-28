@@ -76,6 +76,10 @@ namespace bits_and_bytes {
         explicit BitFormatException(std::string const& message) : std::runtime_error(message) {}
     };
 
+    struct OutOfRangeException final : std::runtime_error {
+        explicit OutOfRangeException(std::string const& message) : std::runtime_error(message) {}
+    };
+
     inline std::string_view trim(std::string_view const bitString) {
         if (bitString.empty()) return {};
         auto const start = bitString.find_first_not_of(' ');
@@ -125,7 +129,7 @@ namespace bits_and_bytes {
         return bits;
     }
 
-    inline std::string validateBinary(std::string_view binaryString) {
+    inline std::string canonicalizeBinaryString(std::string_view const binaryString) {
         auto const normalized = normalize(trim(binaryString));
         auto const bits = canonicalize(binaryString);
         if (!std::regex_match(bits, BIN_REGEX)) {
@@ -155,7 +159,23 @@ namespace bits_and_bytes {
         return nibbleString;
     }
 
-    inline std::string convertHexStringToBinaryString(std::string_view const hexString) {
+    /// Converts nibble string to hex digit
+    /// @exception BitFormatException nibble is not of length 4 or if it is not binary
+    [[nodiscard]]
+    inline char asHexDigit(std::string_view const nibble) {
+        if (std::ranges::count_if(nibble, [](char const c) { return c != '1' && c != '0'; }) ||
+            nibble.length() != NUM_BITS_IN_ONE_NIBBLE) {
+            throw BitFormatException(std::format("{} is not a valid nibble", nibble));
+        }
+        uint8_t rawVal{}, pv{1};
+        for (auto const bit : std::ranges::reverse_view(nibble)) {
+            rawVal += (bit - '0') * pv;
+            pv <<= 1;
+        }
+        return rawVal <= 9 ? '0' + rawVal : 'A' + rawVal - TEN;
+    }
+
+    inline std::string convertHexToCanonicalBinaryString(std::string_view const hexString) {
         auto const canonicalBitString = validateHex(hexString);
         std::string binaryString;
         binaryString.reserve(canonicalBitString.length() * NUM_BITS_IN_ONE_NIBBLE);
@@ -165,22 +185,41 @@ namespace bits_and_bytes {
         return binaryString;
     }
 
+    /// Appends leading zeroes to the input bit string.
+    /// @exception BitFormatException if the input is not a valid hexadecimal or binary string
+    ///
     template<typename NumericType>
     [[nodiscard]] std::string zeroExtend(std::string_view const bitString) {
-        std::string canonicalBitString;
-        if (bitString.starts_with("0x")) {
-            canonicalBitString = convertHexStringToBinaryString(bitString);
-        } else {
-            canonicalBitString = validateBinary(bitString);
-        }
-        if (auto constexpr maxBits = sizeof(NumericType) * EIGHT; canonicalBitString.length() < maxBits) {
+        std::string binaryString = bitString.starts_with("0x")
+            ? convertHexToCanonicalBinaryString(bitString)
+            : canonicalizeBinaryString(bitString);
+        if (size_t constexpr maxBits = sizeof(NumericType) * EIGHT; binaryString.length() < maxBits) {
             std::string zeroExtended(maxBits, '0');
-            for (uint8_t i = 0, len = canonicalBitString.length(), j = maxBits - len; i < len; ++i, ++j) {
-                zeroExtended[j] = canonicalBitString[i];
-            }
+            std::ranges::copy(binaryString | std::views::reverse, zeroExtended.rbegin());
             return zeroExtended;
         }
-        return canonicalBitString;
+        return binaryString;
     }
 
+    /// Converts binary string to hexadecimal string
+    /// @exception OutOfRangeException binary string's width is larger than 64 bits
+    /// @exception BitFormatException binary string is not a series of nibbles
+    ///
+    [[nodiscard]]
+    inline std::string convertBinaryToHexString(std::string_view const binaryString) {
+        auto const canonicalBinaryString = canonicalizeBinaryString(binaryString);
+        if (canonicalBinaryString.length() % NUM_BITS_IN_ONE_NIBBLE) {
+            throw BitFormatException(
+                std::format("{} is not a valid sequence of nibbles", binaryString));
+        }
+        std::string hexString;
+        hexString.reserve(SIXTEEN + TWO);
+        hexString.push_back('0'); hexString.push_back('x');
+        std::string_view const binStr {canonicalBinaryString };
+        for (size_t i = 0; i < binStr.length(); i+=4) {
+            auto const nibble = binStr.substr(i, i + 4);
+            hexString.push_back(asHexDigit(nibble));
+        }
+        return hexString;
+    }
 }

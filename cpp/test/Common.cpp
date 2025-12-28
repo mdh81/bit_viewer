@@ -79,20 +79,20 @@ TEST(Common, WillValidateHexadecimalStringsCorrectly) {
 }
 
 TEST(Common, WillValidateBinaryStringsCorrectly) {
-    ASSERT_NO_THROW(bb::validateBinary("10101111"));
-    ASSERT_NO_THROW(bb::validateBinary("10101111 10101111"));
+    ASSERT_NO_THROW(bb::canonicalizeBinaryString("10101111"));
+    ASSERT_NO_THROW(bb::canonicalizeBinaryString("10101111 10101111"));
     ASSERT_THROW(
         try {
-            bb::validateBinary("0A01111000");
+            bb::canonicalizeBinaryString("0A01111000");
         } catch (bb::BitFormatException& ex) {
             ASSERT_STREQ("0A01111000 is not a valid binary value.", ex.what());
             throw;
         }, bb::BitFormatException);
-    ASSERT_NO_THROW(bb::validateBinary(" 1111 1111 1111 1000 1101 0001 1000 0101 1111 1111 1111 1111 1111 1111 1000 0001 "));
+    ASSERT_NO_THROW(bb::canonicalizeBinaryString(" 1111 1111 1111 1000 1101 0001 1000 0101 1111 1111 1111 1111 1111 1111 1000 0001 "));
     ASSERT_THROW(
         std::string binStr(65, '1');
         try {
-            bb::validateBinary(binStr);
+            bb::canonicalizeBinaryString(binStr);
         } catch (bb::BitFormatException& ex) {
             ASSERT_EQ(std::format("{} is not a valid binary value. The largest data type supported " // NOLINT: Spelling ignored
                 "by this library is 64-bits", binStr), ex.what());
@@ -113,11 +113,11 @@ TEST(Common, WillConvertNibbleToBitsCorrectly) {
 }
 
 TEST(Common, WillConvertHexadecimalToBinaryCorrectly) {
-    ASSERT_EQ("0000", bb::convertHexStringToBinaryString("0x0"));
-    ASSERT_EQ("1000", bb::convertHexStringToBinaryString("0x8"));
-    ASSERT_EQ("1010", bb::convertHexStringToBinaryString("0xA"));
-    ASSERT_EQ("11111010", bb::convertHexStringToBinaryString("0xFA"));
-    ASSERT_EQ(std::string(16, '1'), bb::convertHexStringToBinaryString("0xFFFF"));
+    ASSERT_EQ("0000", bb::convertHexToCanonicalBinaryString("0x0"));
+    ASSERT_EQ("1000", bb::convertHexToCanonicalBinaryString("0x8"));
+    ASSERT_EQ("1010", bb::convertHexToCanonicalBinaryString("0xA"));
+    ASSERT_EQ("11111010", bb::convertHexToCanonicalBinaryString("0xFA"));
+    ASSERT_EQ(std::string(16, '1'), bb::convertHexToCanonicalBinaryString("0xFFFF"));
     //TODO: Negative tests
 }
 
@@ -128,4 +128,58 @@ TEST(Common, WillZeroExtendCorrectly) {
     ASSERT_EQ("00011000", bb::zeroExtend<int8_t>("11000"));
     ASSERT_EQ("00011000", bb::zeroExtend<int8_t>("00011000"));
     ASSERT_EQ("10101111111100000000000000000000000000010001", bb::zeroExtend<int32_t>("0xAFF 0000 0011"));
+}
+
+TEST(Common, WillConvertNibbleToHexDigitCorrectly) {
+    ASSERT_EQ('A', bb::asHexDigit("1010"));
+    ASSERT_EQ('F', bb::asHexDigit("1111"));
+    ASSERT_EQ('0', bb::asHexDigit("0000"));
+    ASSERT_EQ('9', bb::asHexDigit("1001"));
+    ASSERT_THROW(
+        try {
+            auto ret [[maybe_unused]] = bb::asHexDigit("0");
+        } catch (...) {
+            throw;
+        }, bb::BitFormatException
+    );
+    ASSERT_THROW(
+        try {
+            auto ret [[maybe_unused]] = bb::asHexDigit("");
+        } catch (...) {
+            throw;
+        }, bb::BitFormatException
+    );
+    ASSERT_THROW(
+        try {
+            auto ret [[maybe_unused]] = bb::asHexDigit("ABC");
+        } catch (...) {
+            throw;
+        }, bb::BitFormatException
+    );
+    ASSERT_THROW(
+        try {
+            auto ret [[maybe_unused]] = bb::asHexDigit("11111");
+        } catch (...) {
+            throw;
+        }, bb::BitFormatException
+    );
+}
+
+TEST(Common, WillConvertBinaryToHexString) {
+    ASSERT_EQ("0x00", bb::convertBinaryToHexString("0000 0000"));
+    ASSERT_EQ("0x5", bb::convertBinaryToHexString("0101"));
+    ASSERT_THROW(
+        try {
+            auto ret [[maybe_unused]] = bb::convertBinaryToHexString("00 101");
+        } catch (...) {
+            throw;
+        }, bb::BitFormatException
+    ) << "Expected bit format exception for binary strings that are not sequence of nibbles";
+    ASSERT_THROW(
+        try {
+            auto ret [[maybe_unused]] = bb::convertBinaryToHexString(std::string(65, '1'));
+        } catch (...) {
+            throw;
+        }, bb::BitFormatException
+    ) << "Expected bit format exception for binary strings containing more than 64 bits";
 }
