@@ -5,3 +5,9 @@ set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-Wall -Werror")
 add_library(bytes INTERFACE Bits.h Common.h)
 
 add_subdirectory(test)
+
+set(BUILD_EXAMPLES OFF CACHE BOOL "Build Examples")
+if (BUILD_EXAMPLES)
+    add_executable(example examples.cpp)
+    target_link_libraries(example bytes)
+endif()
