@@ -42,27 +42,18 @@ TEST_F(Bits, WillSizeUnsignedIntegerTypesCorrectly) {
     disableLeadingZeroes();
     disableBitGrouping();
 
-    std::string bitStr{};
-
-    bitStr = bb::Bits{uint8_t{0}};
-    ASSERT_EQ(1, bitStr.length());
-
-    bitStr = bb::Bits{uint16_t{0xFFFF}};
-    ASSERT_EQ(16, bitStr.length());
-
-    bitStr = bb::Bits{uint32_t{0xFFFF'FFFF}};
-    ASSERT_EQ(32, bitStr.length());
-
-    bitStr = bb::Bits{uint64_t{0xFFFF'FFFF'FFFF'FFFF}};
-    ASSERT_EQ(64, bitStr.length());
+    ASSERT_EQ(1, bb::Bits{int8_t{0U}}.length());
+    ASSERT_EQ(16, bb::Bits{uint16_t{0xFFFF}}.length());
+    ASSERT_EQ(32, bb::Bits{uint32_t{0xFFFF'FFFF}}.length());
+    ASSERT_EQ(64, bb::Bits{uint64_t{0xFFFF'FFFF'FFFF'FFFF}}.length());
 }
 
 TEST_F(Bits, WillGroupByNibbleWhenLeadingZeroesAreOff) {
     disableLeadingZeroes();
-    ASSERT_STREQ("0", bb::Bits{uint8_t{0}});
-    ASSERT_STREQ("10", bb::Bits{int16_t{2}});
-    ASSERT_STREQ("1111", bb::Bits{int32_t{15}});
-    ASSERT_STREQ("1 0000", bb::Bits{int32_t{16}});
+    ASSERT_EQ("0", bb::Bits{uint8_t{0}});
+    ASSERT_EQ("10", bb::Bits{int16_t{2}});
+    ASSERT_EQ("1111", bb::Bits{int32_t{15}});
+    ASSERT_EQ("1 0000", bb::Bits{int32_t{16}});
     // With leading zeroes off, unsigned values should produce the same output for all
     // data types that can represent the number
     // NOTE: This invokes operator== with dissimilar types
@@ -70,45 +61,45 @@ TEST_F(Bits, WillGroupByNibbleWhenLeadingZeroesAreOff) {
 }
 
 TEST_F(Bits, WillGroupByNibbleCorrectlyWhenLeadingZeroesAreOn) {
-    ASSERT_STREQ("0000 0000", bb::Bits{uint8_t{0}});
-    ASSERT_STREQ("0000 0000 0000 0010", bb::Bits{int16_t{2}});
-    ASSERT_STREQ("0000 0000 0000 0000 0000 0000 0000 1111", bb::Bits{int32_t{15}});
-    ASSERT_STREQ("0001 0000", bb::Bits{int8_t{16}});
+    ASSERT_EQ("0000 0000", bb::Bits{uint8_t{0}});
+    ASSERT_EQ("0000 0000 0000 0010", bb::Bits{int16_t{2}});
+    ASSERT_EQ("0000 0000 0000 0000 0000 0000 0000 1111", bb::Bits{int32_t{15}});
+    ASSERT_EQ("0001 0000", bb::Bits{int8_t{16}});
 }
 
 TEST_F(Bits, WillProduceCorrectHexWhenLeadingZeroesAreOff) {
     enableHexaDecimalOutput();
     disableLeadingZeroes();
-    ASSERT_STREQ("0x 0", bb::Bits{uint8_t{0}});
-    ASSERT_STREQ("0x 2", bb::Bits{int16_t{2}});
-    ASSERT_STREQ("0x F", bb::Bits{int32_t{15}});
-    ASSERT_STREQ("0x 1 0", bb::Bits{int32_t{16}});
+    ASSERT_EQ("0x 0", bb::Bits{uint8_t{0}});
+    ASSERT_EQ("0x 2", bb::Bits{int16_t{2}});
+    ASSERT_EQ("0x F", bb::Bits{int32_t{15}});
+    ASSERT_EQ("0x 1 0", bb::Bits{int32_t{16}});
 }
 
 TEST_F(Bits, WillProduceCorrectHexWhenLeadingZeroesAreOn) {
     enableHexaDecimalOutput();
-    ASSERT_STREQ("0x 0 0", bb::Bits{uint8_t{0}});
-    ASSERT_STREQ("0x 0 0 0 2", bb::Bits{int16_t{2}});
-    ASSERT_STREQ("0x 0 0 0 0 0 0 0 F", bb::Bits{int32_t{15}});
-    ASSERT_STREQ("0x 0 0 0 0 0 0 1 0", bb::Bits{int32_t{16}});
+    ASSERT_EQ("0x 0 0", bb::Bits{uint8_t{0}});
+    ASSERT_EQ("0x 0 0 0 2", bb::Bits{int16_t{2}});
+    ASSERT_EQ("0x 0 0 0 0 0 0 0 F", bb::Bits{int32_t{15}});
+    ASSERT_EQ("0x 0 0 0 0 0 0 1 0", bb::Bits{int32_t{16}});
 }
 
 TEST_F(Bits, WillProduceExpectedOutputWhenGroupedByBytes) {
     enableHexaDecimalOutput();
     groupByBytes();
-    ASSERT_STREQ("0x 00", bb::Bits{uint8_t{0}});
-    ASSERT_STREQ("0x 00 02", bb::Bits{int16_t{2}});
-    ASSERT_STREQ("0x 00 00 00 0F", bb::Bits{int32_t{15}});
-    ASSERT_STREQ("0x 00 00 00 10", bb::Bits{int32_t{16}});
+    ASSERT_EQ("0x 00", bb::Bits{uint8_t{0}});
+    ASSERT_EQ("0x 00 02", bb::Bits{int16_t{2}});
+    ASSERT_EQ("0x 00 00 00 0F", bb::Bits{int32_t{15}});
+    ASSERT_EQ("0x 00 00 00 10", bb::Bits{int32_t{16}});
 }
 
 TEST_F(Bits, WillUseUserProvidedDelimiterForGrouping) {
     groupByBytes();
     useSingleQuoteDelimiter();
-    ASSERT_STREQ("00000000", bb::Bits{uint8_t{0}});
-    ASSERT_STREQ("00000000'00000010", bb::Bits{int16_t{2}});
-    ASSERT_STREQ("00000000'00000000'00000000'00001111", bb::Bits{int32_t{15}});
-    ASSERT_STREQ("00010000", bb::Bits{int8_t{16}});
+    ASSERT_EQ("00000000", bb::Bits{uint8_t{0}});
+    ASSERT_EQ("00000000'00000010", bb::Bits{int16_t{2}});
+    ASSERT_EQ("00000000'00000000'00000000'00001111", bb::Bits{int32_t{15}});
+    ASSERT_EQ("00010000", bb::Bits{int8_t{16}});
 }
 
 TEST_F(Bits, WillBuildFromHexaDecimalString) {
@@ -122,7 +113,7 @@ TEST_F(Bits, WillBuildFromHexaDecimalString) {
             throw;
         }, std::runtime_error
     );
-    ASSERT_STREQ("1111 1111", bb::Bits<uint8_t>{"0xFF"});
+    ASSERT_EQ("1111 1111", bb::Bits<uint8_t>{"0xFF"});
     ASSERT_THROW(
         try {
             bb::Bits<int8_t>{"0x"};
@@ -145,7 +136,7 @@ TEST_F(Bits, WillBuildPositiveNumbersFromBinaryString) {
         },
     std::runtime_error);
     enableHexaDecimalOutput();
-    ASSERT_STREQ("0x F F", bb::Bits<uint8_t>{"1111 1111"});
+    ASSERT_EQ("0x F F", bb::Bits<uint8_t>{"1111 1111"});
 }
 
 TEST_F(Bits, WillBuildNegativeNumbersFromTwosComplementBinaryString) {

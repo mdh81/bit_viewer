@@ -11,8 +11,8 @@
 
 
 namespace bits_and_bytes {
-
     // TODO:
+    // 1. Support for floating point types
     // 2. Python module
     // 3. Class named Bytes that accepts a T or sequence of T and serializes them to a byte array
 
@@ -76,6 +76,7 @@ namespace bits_and_bytes {
             reverseString(result);
             if (auto [groupingEnabled, groupSize] = getGroupSize(true); groupingEnabled) {
                 result = groupBits(result, groupSize);
+                result = " " + result;
             }
             return "0x" + result;
         }
@@ -138,51 +139,66 @@ namespace bits_and_bytes {
 
     template<typename NumericType>
     class Bits final : public BitsBase {
-    static_assert(std::is_integral_v<NumericType>);
+        static_assert(std::is_integral_v<NumericType>);
     public:
+        /// @brief Constructs a bit sequence for the given number.
+        ///
+        /// If Bits<NumericType> is signed, the bit sequence will be in the two's complement form
         explicit Bits(NumericType value)
             : value(value) {}
 
-        /// Converts the given bit string to a zero extended binary string and extracts the signed decimal value
+        /// @brief Constructs a bit sequence from the bit string by zero extending and extracting a numerical value
+        /// from it.
+        ///
+        /// If Bits<NumericType> is signed and if the MSB of the input bit string is 1, then bit string is assumed
+        /// to be in two's complement form and a signed value is generated accordingly
         /// @exception OutOfRangeException bitString exceeds the bit width of this template type
         /// @exception BitFormatException bitString is not a valid hexadecimal or binary string
         ///
-        explicit Bits(std::string const& bitString)
+        explicit Bits(std::string_view const bitString)
             : value(convertToDecimal(bitString)) {
         }
 
-        explicit Bits(char const* bitChars)
-            : Bits(std::string{bitChars}) {
-        }
-
+        /// Compares this bits sequence to another bit sequence of potentially different bit width returning true
+        /// if the underlying numeric values are equal
+        ///
         template<typename AnotherNumericType>
+        [[nodiscard]]
         bool operator==(Bits<AnotherNumericType> const& another) const {
             return this->value == another.getValue();
         }
 
-        // NOTE: The returned pointer is guaranteed to be valid for the lifetime of this Bits object
-        operator char const*() const { // NOLINT: Implicit conversion is the API
-            if (!presenter) {
-                presenter = std::make_optional<BitsPresenter>(stringFormat, getNumberOfBits());
-                presenter->format(*this);
-            }
-            return presenter->getOutput().c_str();
+        /// Implicitly converts Bits<NumericType> to NumericType
+        ///
+        [[nodiscard]]
+        operator NumericType() const { // NOLINT: Implicit conversion is by design
+            return value;
         }
 
-        // NOTE: Only invoked for explicit conversion to prevent ambiguity between this and const char* version
-        explicit operator std::string() const {
-            char const* str = *this;
-            return str;
+        /// Compares this object to a formatted bit string by applying the current format to this object's bit sequence
+        ///
+        [[nodiscard]]
+        bool operator==(std::string_view const bitString) const {
+            return getString() == bitString;
         }
 
         /// Gets the numeric value of the bit representation
         [[nodiscard]]
-        operator NumericType() const { // NOLINT: Implicit conversion is the api
-            return value;
+        NumericType getValue() const { return value; }
+
+        [[nodiscard]]
+        std::string_view getString() const {
+            if (!presenter) {
+                presenter = std::make_optional<BitsPresenter>(stringFormat, getNumberOfBits());
+                presenter->format(*this);
+            }
+            return presenter->getOutput();
         }
 
-        /// Gets the numeric value of the bit representation
-        NumericType getValue() const { return value; }
+        [[nodiscard]]
+        uint8_t length() const {
+            return getString().length();
+        }
 
     private:
         // NOTE: Private methods do not perform any sanity checks, it's expected that the public API checks the input
@@ -351,19 +367,18 @@ namespace bits_and_bytes {
         bool inputIsHex{};
     };
 
+    // Stream overload to print to output stream
+    template<typename NumericType>
+    std::ostream& operator << (std::ostream& os, Bits<NumericType> const& bits) {
+        os << bits.getString() << std::endl;
+        return os;
+    }
 }
 
 // Custom formatter to support printing bits::Bits via std::format
 template <typename NumericType>
-struct std::formatter<bits_and_bytes::Bits<NumericType>> : std::formatter<std::string> {
+struct std::formatter<bits_and_bytes::Bits<NumericType>> : std::formatter<std::string_view> {
     auto format(bits_and_bytes::Bits<NumericType> const& bits, std::format_context& ctx) const {
-        return std::formatter<std::string>::format(static_cast<std::string>(bits), ctx);
+        return std::formatter<std::string_view>::format(bits.getString(), ctx);
     }
 };
-
-// Stream overload to print to output stream
-template<typename NumericType>
-std::ostream& operator << (std::ostream& os, bits_and_bytes::Bits<NumericType> const& bits) {
-   os << static_cast<std::string>(bits) << std::endl;
-   return os;
-}
