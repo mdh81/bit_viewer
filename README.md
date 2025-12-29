@@ -26,7 +26,7 @@ When cmake variable `BUILD_EXAMPLES` is `ON`, [examples.cpp](./cpp/examples.cpp)
 output that documents the usage of this library
 
 ```bash
-$ ./build/bin/examples
+$ ./build/cpp/examples
 
 ---------------------------------Bits Usage----------------------------------
 

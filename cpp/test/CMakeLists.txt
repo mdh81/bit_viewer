@@ -6,6 +6,7 @@ FetchContent_Declare(
     GIT_TAG v1.17.0
 )
 FetchContent_MakeAvailable(GTest)
+include(GoogleTest)
 
 file(GLOB allTests "*.cpp")
 foreach (test ${allTests})
@@ -13,6 +14,7 @@ foreach (test ${allTests})
     add_executable(${testExe} ${test})
     target_compile_features(${testExe} PRIVATE cxx_std_23)
     target_link_libraries(${testExe} GTest::gtest_main)
+    gtest_discover_tests(${testExe})
     target_include_directories(${testExe} PRIVATE ${CMAKE_SOURCE_DIR}/cpp)
 endforeach ()
 
