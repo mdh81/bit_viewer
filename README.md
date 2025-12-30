@@ -29,9 +29,9 @@ $ ctest --test-dir build/
 
 ```c++
 int8_t constexpr ten {10};
-std::println("Bits(10) = ", bb::Bits(ten));
+std::println("Bits(10) = {}", bb::Bits(ten));
 bb::BitsBase::stringFormat.format = bb::Format::Hexadecimal;
-std::println("Bits(10) = ", bb::Bits(ten));
+std::println("Bits(10) = {}", bb::Bits(ten));
 ```
 
 ```bash
