@@ -42,7 +42,7 @@ Bits(10) = 0xA
 ```c++
 std::println(" 127  == Bits<int8_t>(\"0111 1111\") : {}", bb::Bits<int8_t>{"0111 1111"} == 0x7F);
 std::println("-128  == Bits<int8_t>(\"0x80\")      : {}", std::numeric_limits<int8_t>::min() == bb::Bits<int8_t>{"0x80"});
-std::println(" 128  == Bits<uint8_t>(\"0x80\")     : {}", abs(std::numeric_limits<int8_t>::min()) == bb::Bits<uint8_t>{"0x80"});
+std::println(" 128  == Bits<uint8_t>(\"0x80\")     : {}", 128 == bb::Bits<uint8_t>{"0x80"});
 ```
 ```bash
  127  == Bits<int8_t>("0111 1111") : true
@@ -51,16 +51,16 @@ std::println(" 128  == Bits<uint8_t>(\"0x80\")     : {}", abs(std::numeric_limit
 ```
 ##### Convert numbers to bits using two's complement
 ```c++
-std::println("Bits<int8_t>{{-3}}   = {}", bb::Bits<int8_t>{-0x3});
-std::println("Bits<uint8_t>{{253}} = {}", bb::Bits<uint8_t>{0xFD});
-std::println("Bits<int16_t>{{-1}}  = {}", bb::Bits<int16_t>{-0x1});
-std::println("Bits<int16_t>{{1}}   = {}", bb::Bits<int8_t>{0x1});
+std::println("Bits<int8_t>(-3)   = {}", bb::Bits<int8_t>{-0x3});
+std::println("Bits<uint8_t>(253) = {}", bb::Bits<uint8_t>{0xFD});
+std::println("Bits<int16_t>(-1)  = {}", bb::Bits<int16_t>{-0x1});
+std::println("Bits<int8_t>(1)    = {}", bb::Bits<int8_t>{0x1});
 ```
 ```bash
-Bits<int8_t>{-3}   = 0xFD
-Bits<uint8_t>{253} = 0xFD
-Bits<int16_t>{-1}  = 0xFFFF
-Bits<int16_t>{1}   = 0x1
+Bits<int8_t>(-3)   = 0xFD
+Bits<uint8_t>(253) = 0xFD
+Bits<int16_t>(-1)  = 0xFFFF
+Bits<int16_t>(1)   = 0x1
 ```
 
 Build with `-DBUILD_EXAMPLES=ON` to build [examples.cpp](./cpp/examples.cpp) 
