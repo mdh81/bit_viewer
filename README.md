@@ -38,7 +38,7 @@ std::println("Bits(10) = {}", bb::Bits(ten));
 Bits(10) = 1010
 Bits(10) = 0xA
 ```
-#### Convert bits (interpreted as two's complement) to numbers
+##### Convert bits (interpreted as two's complement) to numbers
 ```c++
 std::println(" 127  == Bits<int8_t>(\"0111 1111\") : {}", bb::Bits<int8_t>{"0111 1111"} == 0x7F);
 std::println("-128  == Bits<int8_t>(\"0x80\")      : {}", std::numeric_limits<int8_t>::min() == bb::Bits<int8_t>{"0x80"});
