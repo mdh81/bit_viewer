@@ -215,7 +215,7 @@ namespace bits_and_bytes {
     }
 }
 
-// Custom formatter to support printing bits::Bits via std::format
+/// Custom formatter to support printing Bits<T> via std::println
 template <typename NumericType>
 struct std::formatter<bits_and_bytes::Bits<NumericType>> : std::formatter<std::string_view> {
     auto format(bits_and_bytes::Bits<NumericType> const& bits, std::format_context& ctx) const {
